@@ -1,38 +1,44 @@
 import random
+import questionary
+from questionary import Separator, Style
 
 
 class FakeTask:
     def __init__(self):
         self.description = "This is a fake categorization task"
         self.options = ["Foo", "Bar", "Baz"]
-        self.options_normalised = [self.normalise(option) for option in self.options]
 
     def result(self, option):
         pass
-
-    def normalise(self, option):
-        return option.lower()
-
-    def validate_option(self, response):
-        return self.normalise(response) in self.options_normalised
 
 
 tasks = [FakeTask()]
 
 
-def prompt(task):
-    print(task.description)
-    print(task.options)
-    print("Select an option:")
-
-    while True:
-        response = input("> ")
-        if task.validate_option(response):
-            task.result(response)
-            break
-        else:
-            print(f'Invalid option "{response}". Valid options are {task.options}')
+style = Style(
+    [
+        ("separator", "fg:#6C6C6C"),
+        ("qmark", "fg:#FF9D00 bold"),
+        ("question", ""),
+        ("selected", "fg:#5F819D"),
+        ("pointer", "fg:#FF9D00 bold"),
+        ("answer", "fg:#5F819D bold"),
+    ]
+)
 
 
 for task in tasks:
-    prompt(task)
+    response = questionary.select(
+        task.description,
+        choices=task.options + [Separator(), "Skip", "Quit"],
+        use_shortcuts=True,
+        style=style,
+    ).ask()
+
+    if response == "Skip":
+        continue
+
+    if response == "Quit":
+        break
+
+    task.result(response)

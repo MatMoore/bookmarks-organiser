@@ -1,6 +1,5 @@
 """
-Turn bookmark export files into a set of categorization tasks.
-Each task presents the bookmark and requires the user to select a category.
+For a categorization task the user has to select a category from a set of options.
 Tasks and responses are stored in a SQLite database.
 """
 
@@ -12,6 +11,7 @@ import json
 class CategorizationTask(NamedTuple):
     task_id: int
     description: str
+    metadata: str
     options: List[str]
     category: Optional[str]
 
@@ -20,35 +20,53 @@ class CategorizationTaskStore:
     def __init__(self, cursor):
         self.cursor = cursor
 
-    def create_task(self, description, options):
+    def create_task(self, description, options, metadata=None):
+        metadata = metadata or {}
         self.cursor.execute(
             """
-            insert into categorization_task (description, options) values (:description, :options)
+            insert into categorization_task (description, options, metadata) values (:description, :options, :metadata)
             """,
-            {"description": description, "options": json.dumps(options)},
+            {
+                "description": description,
+                "options": json.dumps(options),
+                "metadata": json.dumps(metadata),
+            },
         )
 
         return CategorizationTask(
             task_id=self.cursor.lastrowid,
             description=description,
             options=options,
+            metadata=metadata,
             category=None,
         )
 
-    def load_tasks(self):
-        self.cursor.execute(
-            """
-            select ROWID, description, options, category from categorization_task
-            """
-        )
+    def load_tasks(self, include_completed=False):
+        if include_completed:
+            self.cursor.execute(
+                """
+              select ROWID, description, options, category, metadata
+              from categorization_task
+              """
+            )
+        else:
+            self.cursor.execute(
+                """
+              select ROWID, description, options, category, metadata
+              from categorization_task
+              where category is null
+              """
+            )
 
         result = []
         for row in self.cursor.fetchall():
+            metadata = json.loads(row["metadata"]) if row["metadata"] else {}
             result.append(
                 CategorizationTask(
                     task_id=row["ROWID"],
                     description=row["description"],
                     options=json.loads(row["options"]),
+                    metadata=metadata,
                     category=row["category"],
                 )
             )
@@ -68,16 +86,11 @@ class CategorizationTaskStore:
             create table if not exists categorization_task (
               description text not null,
               options text not null,
-              category text
+              category text,
+              metadata text
             );
             """
         )
-
-
-class BookmarkSortingTaskFormulator:
-    @staticmethod
-    def from_pocket_export(filename):
-        pass
 
 
 if __name__ == "__main__":
@@ -90,4 +103,4 @@ if __name__ == "__main__":
     print(store.create_task(description="desc", options=["a", "b", "c"]))
     print(store.create_task(description="desc2", options=["a2", "b2", "c2"]))
     store.save_result(1, "c")
-    print(store.load_tasks())
+    print(store.load_tasks(include_completed=True))

@@ -1,18 +1,9 @@
 import random
 import questionary
 from questionary import Separator, Style
-
-
-class FakeTask:
-    def __init__(self):
-        self.description = "This is a fake categorization task"
-        self.options = ["Foo", "Bar", "Baz"]
-
-    def result(self, option):
-        pass
-
-
-tasks = [FakeTask()]
+from categorization_task import CategorizationTaskStore
+from work import WorkGenerator
+import sqlite3
 
 
 style = Style(
@@ -27,18 +18,42 @@ style = Style(
 )
 
 
-for task in tasks:
-    response = questionary.select(
-        task.description,
-        choices=task.options + [Separator(), "Skip", "Quit"],
-        use_shortcuts=True,
-        style=style,
-    ).ask()
+def prompt(store):
+    for task in store.load_tasks():
+        response = questionary.select(
+            task.description,
+            choices=task.options + [Separator(), "Skip", "Quit"],
+            use_shortcuts=True,
+            style=style,
+        ).ask()
 
-    if response == "Skip":
-        continue
+        if response == "Skip":
+            continue
 
-    if response == "Quit":
-        break
+        if response is None or response == "Quit":
+            break
 
-    task.result(response)
+        store.save_result(task.task_id, response)
+
+
+def get_store(conn):
+    conn.row_factory = sqlite3.Row
+    store = CategorizationTaskStore(conn.cursor())
+    store.create_schema()
+    return store
+
+
+def pocket_export(filename, store):
+    generator = WorkGenerator(store)
+    generator.from_pocket_export(filename)
+
+
+if __name__ == "__main__":
+    import sys
+
+    with sqlite3.connect("tasks.db") as conn:
+        store = get_store(conn)
+
+        # pocket_export(sys.argv[1], store)
+
+        prompt(store)

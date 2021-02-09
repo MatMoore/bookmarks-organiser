@@ -41,6 +41,17 @@ class CategorizationTaskStore:
             category=None,
         )
 
+    def fetch_tasks_by_category(self, category):
+        self.cursor.execute(
+            """
+          select ROWID, description, options, category, metadata
+          from categorization_task
+          where category = :category
+          """,
+            {"category": category},
+        )
+        return self._fetch_results()
+
     def load_tasks(self, include_completed=False):
         if include_completed:
             self.cursor.execute(
@@ -58,6 +69,9 @@ class CategorizationTaskStore:
               """
             )
 
+        return self._fetch_results()
+
+    def _fetch_results(self):
         result = []
         for row in self.cursor.fetchall():
             metadata = json.loads(row["metadata"]) if row["metadata"] else {}

@@ -80,6 +80,14 @@ class CategorizationTaskStore:
             {"task_id": task_id, "result": result},
         )
 
+    def update_metadata(self, task_id, metadata):
+        self.cursor.execute(
+            """
+            update categorization_task set metadata=:metadata where ROWID=:task_id
+            """,
+            {"task_id": task_id, "metadata": json.dumps(metadata)},
+        )
+
     def create_schema(self):
         self.cursor.execute(
             """
